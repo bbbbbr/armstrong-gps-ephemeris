@@ -2,7 +2,7 @@
 
 ## About
 
-Retrieve EPO.BIN GPS data from Garmin's servers on any platform that you
+Retrieve EPO.BIN GPS data from MediaTek's servers on any platform that you
 can compile a Go binary for, rather than only those that support Garmin
 Connect. Since Garmin's software doesn't run natively on Linux, it's
 useful there.
