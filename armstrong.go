@@ -1,5 +1,7 @@
 // Based on https://www.kluenter.de/garmin-ephemeris-files-and-linux/ and
 // EPO_Downloader.rb in https://github.com/scrapper/postrunner (GPLv2)
+// and information in this Garmin forum post:
+// https://forums.garmin.com/outdoor-recreation/outdoor-recreation-archive/f/fenix-5-series/207977/epo-expired/1166435
 
 // = EPO_Downloader.rb -- PostRunner - Manage the data from your Garmin sport devices.
 //
@@ -16,7 +18,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -24,18 +25,18 @@ import (
 	"time"
 )
 
-// retrieveData makes a HTTP request to get Garmin EPO data and returns the body as []byte if successful.
+// Garmin forum post:
+// "…each EPO SET is 2304 bytes"
+const epoLength = 2304
+
+// retrieveData makes a HTTP request to get data and returns the body as []byte if successful.
 func retrieveData() ([]byte, error) {
-	url := "https://omt.garmin.com/Rce/ProtobufApi/EphemerisService/GetEphemerisData"
-	// Data from https://www.kluenter.de/garmin-ephemeris-files-and-linux/
-	data := []byte("\n-\n\aexpress\u0012\u0005de_DE\u001A\aWindows\"" +
-		"\u0012601 Service Pack 1\u0012\n\b\x8C\xB4\x93\xB8" +
-		"\u000E\u0012\u0000\u0018\u0000\u0018\u001C\"\u0000")
+	url := "https://epodownload.mediatek.com/EPO.DAT"
 
 	c := &http.Client{
 		Timeout: 20 * time.Second,
 	}
-	resp, err := c.Post(url, "application/octet-stream", bytes.NewBuffer(data))
+	resp, err := c.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -51,27 +52,27 @@ func retrieveData() ([]byte, error) {
 // checkDataLength checks the EPO data length; if not as expected, returns an error.
 func checkDataLength(data []byte) error {
 	dataLength := len(data)
-	// Each EPO data set is 2307 bytes long, with the first three bytes to be removed.
-	if dataLength != 28*2307 {
+	if dataLength != 120*epoLength {
 		return fmt.Errorf("EPO data has unexpected length: %v", dataLength)
 	}
 	return nil
 }
 
-// cleanEPO removes the first three bytes from each block of 2307 bytes in EPO data,
-// and returns a cleaned []byte.
-func cleanEPO(rawEPOData []byte) []byte {
-	var outData []byte
-	for i := 0; i <= 27; i++ {
-		offset := i * 2307
-		outData = append(outData, rawEPOData[offset+3:offset+2307]...)
-	}
-	return outData
+// trimEPOData trims the MediaTek data sufficiently for a Garmin watch.
+func trimEPOData(data []byte) []byte {
+	// Garmin forum post:
+	// "…even with such a clean file, the Garmin watches use only a max of one-digit
+	// days, ie 9 days of data…"
+	const days = 9
+	// Garmin forum post:
+	// "…each EPO SET … has 6 hours of satellite locations…"
+	const epoSetsCount = 4 * days
+	return data[:(epoSetsCount * epoLength)]
 }
 
 // main retrieves EPO data, checks it, cleans it and writes it to disk.
 func main() {
-	fmt.Println("Retrieving data from Garmin's servers...")
+	fmt.Println("Retrieving EPO data from Mediatek's servers...")
 	rawEPOData, err := retrieveData()
 	if err != nil {
 		log.Fatal(err)
@@ -83,7 +84,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	outData := cleanEPO(rawEPOData)
+	outData := trimEPOData(rawEPOData)
 
 	err = ioutil.WriteFile("EPO.BIN", outData, 0644)
 	if err != nil {
