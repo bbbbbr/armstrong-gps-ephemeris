@@ -30,8 +30,8 @@ import (
 // "…each EPO SET is 2304 bytes"
 const epoLength = 2304
 
-// retrieveData makes a HTTP request to get data and returns the body as []byte if successful.
-func retrieveData() ([]byte, error) {
+// retrieveDataEPO makes a HTTP request to get data and returns the body as []byte if successful.
+func retrieveDataEPO() ([]byte, error) {
 	url := "https://epodownload.mediatek.com/EPO.DAT"
 
 	c := &http.Client{
@@ -71,10 +71,10 @@ func trimEPOData(data []byte) []byte {
 	return data[:(epoSetsCount * epoLength)]
 }
 
-// main retrieves EPO data, checks it, cleans it and writes it to disk.
-func main() {
+// downloadFileEPO retrieves EPO data, checks it, cleans it and writes it to disk.
+func downloadFileEPO() {
 	fmt.Println("Retrieving EPO data from Mediatek's servers...")
-	rawEPOData, err := retrieveData()
+	rawEPOData, err := retrieveDataEPO()
 	if err != nil {
 		log.Fatal(err)
 	}
